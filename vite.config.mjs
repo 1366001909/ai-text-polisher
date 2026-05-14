@@ -4,6 +4,9 @@ export default defineConfig({
   // GitHub Pages base path configuration
   base: process.env.VITE_BASE_PATH || '/',
   plugins: [],
+  define: {
+    'import.meta.env.VITE_DEEPSEEK_API_KEY': JSON.stringify(process.env.VITE_DEEPSEEK_API_KEY || ''),
+  },
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
     esbuildOptions: {
