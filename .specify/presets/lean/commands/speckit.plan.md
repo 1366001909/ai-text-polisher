@@ -2,8 +2,6 @@
 description: Create a plan and store it in plan.md.
 ---
 
-
-<!-- Source: lean -->
 ## User Input
 
 ```text

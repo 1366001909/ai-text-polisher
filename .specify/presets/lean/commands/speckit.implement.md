@@ -2,8 +2,6 @@
 description: Execute the implementation plan by processing all tasks in tasks.md.
 ---
 
-
-<!-- Source: lean -->
 ## User Input
 
 ```text

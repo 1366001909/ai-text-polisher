@@ -1,50 +1,56 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# AI Text Polisher 宪法
 
-## Core Principles
+## 核心原则
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### 一、单一产品边界
+AI Text Polisher 只做一件事：用户输入一段文字，选择一个场景，由 DeepSeek 返回润色结果。项目定位明确为纯前端文本润色工具，不做 CMS，不做协作平台，不做账号体系，不处理敏感数据，不引入与核心目标无关的功能。
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### 二、技术栈固定
+项目技术栈必须严格保持为 React 19 + TypeScript 严格模式 + Vite + Tailwind CSS v4。禁止擅自替换或新增 CSS 框架，包括但不限于 MUI、Ant Design、Chakra UI。禁止使用 CSS Modules 和 styled-components。所有样式实现都应优先使用 Tailwind 原子类，避免重复叠加样式体系。
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### 三、复用优先，组件清晰
+同一种 UI 模式如果出现两次及以上，必须抽成可复用组件。每个组件只放在一个文件中，禁止一个文件导出多个组件。组件只负责展示和交互，不承担场景 prompt 管理、接口组装等跨层职责。
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### 四、配置与界面彻底分离
+所有 API 调用统一放在 src/api/ 目录中，组件内不允许直接发起 fetch。6 个场景的 prompt 模板统一放在 src/config/ 目录中管理，不允许散落在组件里。场景配置和 UI 组件必须解耦，修改 prompt 配置时不应触碰 UI 代码。
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### 五、状态与架构保持轻量
+项目只使用 React 自带能力完成状态管理，useState 作为默认方案即可。禁止引入 Redux、Zustand、Jotai 等状态管理库。项目不使用路由，因为只有一个页面，额外的路由层只会增加心智负担。
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## 技术与实现约束
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### 前端与构建
+- 仅允许 React 19、TypeScript 严格模式、Vite、Tailwind CSS v4 组成基础技术栈。
+- 不允许引入额外 UI 组件库或样式框架。
+- 不允许使用 CSS Modules 或 styled-components。
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### API 与环境变量
+- DeepSeek 模型固定使用 deepseek-chat。
+- API Key 必须通过环境变量 VITE_DEEPSEEK_API_KEY 读取，禁止硬编码到代码中。
+- 开发环境必须通过 Vite proxy 解决 CORS，/api/* 转发到 https://api.deepseek.com/*。
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### 目录边界
+- 允许且应当使用的核心目录为 src/components/、src/api/、src/config/、src/types/。
+- 不额外创建 router、store 之类与单页产品目标无关的基础设施目录。
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+## 质量要求
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+### TypeScript 与代码规范
+- TypeScript 必须保持严格模式。
+- 代码中不准出现 any。
+- 场景配置、接口调用、UI 组件必须分层清楚，任何配置变更都不应要求修改展示逻辑。
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+### 结构一致性
+- 一个文件只负责一个组件或一个明确的模块职责。
+- 组件复用规则必须严格执行，避免重复堆砌相同 UI 逻辑。
+- 新增功能前必须先判断是否属于核心产品边界，超出边界的需求默认不做。
+
+## 治理规则
+
+这份宪法是项目的最高约束，优先于任何临时约定、个人习惯和局部实现偏好。若后续需要修改技术栈、目录结构、AI 接口方式或产品边界，必须先更新宪法，再推进相关实现。
+
+任何新设计都要先过三道检查：是否仍然符合“纯前端文本润色工具”的定位，是否保持技术栈不变，是否保持配置与 UI 分离。只要有一项不满足，就不能进入实现阶段。
+
+新增或修改条款时，应保留现有原则的意图，不得用“临时兼容”或“以后再收敛”来绕过约束。若条款冲突，以更严格、对产品更轻量的一侧为准。
+
+**版本**: 1.0.0 | **通过日期**: 2026-05-14 | **最后修订**: 2026-05-14

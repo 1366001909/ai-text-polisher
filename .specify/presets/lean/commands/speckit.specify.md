@@ -2,8 +2,6 @@
 description: Create a specification and store it in spec.md.
 ---
 
-
-<!-- Source: lean -->
 ## User Input
 
 ```text

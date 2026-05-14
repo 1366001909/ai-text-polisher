@@ -2,8 +2,6 @@
 description: Create the tasks needed for implementation and store them in tasks.md.
 ---
 
-
-<!-- Source: lean -->
 ## User Input
 
 ```text

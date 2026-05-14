@@ -2,8 +2,6 @@
 description: Create or update the project constitution.
 ---
 
-
-<!-- Source: lean -->
 ## User Input
 
 ```text
