@@ -1,194 +1,99 @@
-# AI Text Polisher 技术方案
+# AI Text Polisher 实施规划（CentOS 单机部署）
 
-## 1. 技术约束对齐
-本方案严格遵守宪法的约束：
-- 前端技术栈固定为 React 19 + TypeScript 严格模式 + Vite + Tailwind CSS v4
-- 不引入 MUI、Ant Design、Chakra UI、CSS Modules、styled-components
-- 不使用 Redux、Zustand、Jotai，不引入路由
-- 不在组件中直接 fetch，统一走 src/api/
-- 6 个场景 prompt 统一放在 src/config/
-- 禁止 any，保持单文件单组件原则
+## 1. 目标与边界
+- 目标：将应用从“前端直连模型/GitHub Pages”迁移为“CentOS 上单 Node 服务同机同源部署”。
+- 目标：前端只调用同源 `/api/*`，DeepSeek API Key 仅保留在服务端环境变量。
+- 边界：首版不做限流、令牌、验证码；不引入 Nginx；不引入账户系统与历史存储。
 
-## 2. 总体架构
-应用采用单页双栏编辑器结构：
-- 左侧：原始文本输入区
-- 顶部：6 个场景预设选择器
-- 中部：润色按钮与加载状态
-- 右侧：润色结果展示区与复制按钮
+## 2. 约束对齐
+- 前端栈保持 React 19 + TypeScript strict + Vite + Tailwind v4。
+- 不引入 Redux/Zustand/Jotai，不引入路由。
+- API 调用仍统一在 `src/api/`，组件层不直接 `fetch`。
+- 模型固定为 `deepseek-chat`。
+- 后端超时策略固定 30 秒，超时返回友好错误。
 
-交互流程保持单向清晰：
-1. 用户输入文本
-2. 选择场景预设
-3. 点击润色
-4. 调用统一 API 层请求 DeepSeek
-5. 返回结果并展示
-6. 支持一键复制
+## 3. 目标架构
+### 3.1 运行形态
+- 入口：`http://<server-ip>:3000`
+- 单个 Node 进程承担两类职责：
+  - 提供 `dist` 静态文件（SPA）
+  - 提供 `/api/chat/completions` 代理接口
 
-状态管理仅使用组件内 useState、useEffect、useMemo 等 React 原生能力，不做全局状态抽象。
+### 3.2 请求链路
+1. 浏览器访问 Node 提供的前端页面。
+2. 前端请求同源 `/api/chat/completions`。
+3. Node 读取 `DEEPSEEK_API_KEY` 后转发到 DeepSeek。
+4. Node 将响应回传前端。
 
-## 3. 目录与文件结构
-仅使用以下核心目录：
-- src/components/
-- src/api/
-- src/config/
-- src/types/
+### 3.3 错误处理
+- 上游超时（30s） -> 返回 504 及可读错误。
+- 上游鉴权失败 -> 返回 401 并提示检查服务端密钥。
+- 其他上游失败 -> 返回 4xx/5xx 并给前端友好文案。
 
-建议文件结构如下：
-- src/components/
-  - TextInputPanel.tsx
-  - PresetSelector.tsx
-  - ActionBar.tsx
-  - ResultPanel.tsx
-  - CopyButton.tsx
-  - StatusMessage.tsx
-- src/api/
-  - deepseekClient.ts
-  - polishText.ts
-- src/config/
-  - presets.ts
-  - prompts.ts
-  - appConfig.ts
-- src/types/
-  - index.ts
-  - prompt.ts
-  - api.ts
+## 4. 代码改造规划
+### 4.1 前端
+- `src/api/deepseekClient.ts`
+  - 移除浏览器 `Authorization` 头逻辑。
+  - 保留原有请求体结构，调用同源 `/api/chat/completions`。
+  - 更新错误提示为“后端侧配置/请求失败”语义。
 
-说明：
-- 每个组件一个文件，不在单文件中导出多个组件
-- 场景定义、提示词模板、模型参数统一放在 config
-- 请求封装和响应处理统一放在 api
+- `vite.config.mjs`
+  - 开发模式将 `/api` 代理到 `http://127.0.0.1:3000`。
+  - 移除 GitHub Pages `base` 与前端密钥注入配置。
 
-## 4. 页面与组件设计
-### 4.1 页面布局
-主页面采用响应式双栏布局：
-- 桌面端左右并排
-- 窄屏时上下堆叠
-- 顶部固定场景切换区
-- 底部提供文本长度提示、加载/错误提示
+### 4.2 后端
+- 新增 `server.mjs`：
+  - `express.static('dist')` 托管前端。
+  - `POST /api/chat/completions` 透传请求体到 DeepSeek。
+  - 使用 `AbortController` 实现 30 秒超时。
+  - SPA 回退路由返回 `dist/index.html`。
 
-### 4.2 组件职责
-- PresetSelector：渲染 6 个场景预设，负责高亮当前选择
-- TextInputPanel：输入文本、显示字数、限制 3000 字
-- ActionBar：承载润色按钮与加载状态文本
-- ResultPanel：展示结果文本
-- CopyButton：复制结果并反馈状态
-- StatusMessage：统一展示加载、错误、成功提示
+### 4.3 配置与文档
+- `package.json` 新增 `start` 脚本。
+- `README.md` 改为 CentOS 部署指南。
+- `.env.example` 使用 `DEEPSEEK_API_KEY` 与 `PORT`。
+- 取消 `.github/workflows/deploy-pages.yml`。
 
-### 4.3 复用策略
-同一种 UI 模式出现两次及以上时抽成组件，例如：
-- 按钮状态样式统一抽取
-- 提示消息样式统一抽取
-- 面板容器样式统一抽取
+## 5. 部署规划（CentOS）
+### 5.1 一次性初始化
+1. 安装 Node.js 20 与 Git。
+2. 拉取仓库并执行 `npm ci`。
+3. 构建前端：`npm run build`。
 
-## 5. 大模型应用配置
-### 5.1 模型与接口约定
-- 固定模型：deepseek-chat
-- API 基址：开发环境通过 Vite proxy 转发到 https://api.deepseek.com/
-- 前端请求路径统一使用 /api/*
-- API Key 通过环境变量 VITE_DEEPSEEK_API_KEY 读取
+### 5.2 启动与守护
+1. 导出环境变量：`DEEPSEEK_API_KEY`、`PORT=3000`。
+2. 启动：`npm start`。
+3. 生产守护建议：`pm2 start server.mjs --name ai-text-polisher`。
 
-### 5.2 请求封装方案
-src/api/deepseekClient.ts 负责：
-- 读取环境变量
-- 组装请求头
-- 统一处理 HTTP 状态码
-- 屏蔽底层错误细节，输出适合 UI 的错误信息
+### 5.3 网络配置
+- 放行腾讯云安全组 `3000/TCP`。
+- 放行系统防火墙 `3000/TCP`。
 
-src/api/polishText.ts 负责：
-- 接收原始文本与场景 preset
-- 从 src/config/presets.ts 读取对应 prompt
-- 组装 DeepSeek 请求 payload
-- 返回标准化结果给组件层
+## 6. 验证计划
+### 6.1 功能验证
+- 输入文本 -> 选择预设 -> 点击润色 -> 返回结果 -> 复制成功。
+- 超过 3000 字阻止提交。
+- 模型固定 `deepseek-chat`。
 
-### 5.3 Prompt 配置方案
-src/config/prompts.ts 统一维护 6 个场景 prompt：
-- 学术润色
-- 商务邮件
-- 社交媒体
-- 技术文档
-- 创意写作
-- 翻译优化
+### 6.2 接口验证
+- 正常请求：返回 200 且结果可解析。
+- 缺失密钥：返回 500 且前端显示友好错误。
+- 上游超时：30 秒后返回 504 且前端有超时提示。
 
-配置原则：
-- prompt 与 UI 完全分离
-- 修改 prompt 不需要改组件代码
-- 每个场景保持明确的输出约束
-- 翻译优化场景需根据输入语言自动推断输出语言
+### 6.3 构建验证
+- 本地 `npm run build` 通过。
+- CentOS `npm run build` + `npm start` 正常。
 
-### 5.4 具体提示词规则
-- 学术润色：正式学术语气，去口语化，保持原意
-- 商务邮件：专业商务语气，结构清晰，含问候和结尾礼貌话
-- 社交媒体：轻松活泼，可用 emoji，尽量控制在 280 字内
-- 技术文档：术语准确，偏被动语态，步骤编号，保留代码格式
-- 创意写作：文学化表达，使用比喻、排比、拟人等修辞
-- 翻译优化：中文转地道英文，英文转流畅中文，避免逐字直译
+## 7. 风险与缓解
+- 风险：无 HTTPS 时仅可 HTTP 访问。
+  - 缓解：后续接入域名与 HTTPS，再评估 Nginx。
+- 风险：首版无限流，接口可能被滥用。
+  - 缓解：短期观察日志，后续迭代接入限流。
+- 风险：单进程承载静态与 API。
+  - 缓解：使用 PM2 守护并保留后续拆分空间。
 
-### 5.5 接口失败与空值处理
-- 缺少 API Key 时直接阻止请求并提示用户配置环境变量
-- 网络错误展示友好提示
-- 非 2xx 响应统一转为用户可理解的错误文案
-- 结果为空时保持 UI 稳定，不中断页面交互
-
-## 6. 交互与状态设计
-### 6.1 状态划分
-组件内建议维护以下状态：
-- sourceText：输入文本
-- selectedPreset：当前场景
-- isLoading：请求中状态
-- resultText：返回结果
-- errorMessage：错误提示
-- copyStatus：复制反馈
-
-### 6.2 约束处理
-- 输入字符上限 3000 字
-- 超限时阻止提交并提示
-- 润色中状态禁用重复提交
-- 结果存在时才显示复制按钮
-
-### 6.3 反馈策略
-- 加载中：显示“润色中...”
-- 成功：显示简短成功提示
-- 失败：显示友好错误提示，不展示堆栈
-- 复制成功：显示“已复制”或同类轻提示
-
-## 7. 类型与质量方案
-- 所有数据结构显式定义在 src/types/
-- 不使用 any
-- API 响应类型、preset 类型、prompt 类型分开定义
-- 所有函数参数与返回值尽量显式标注
-- 通过 TypeScript 严格模式保证配置与接口的可维护性
-
-## 8. 开发与构建方案
-- Vite 负责本地开发和构建
-- 使用 Vite proxy 解决跨域问题
-- Tailwind CSS v4 负责样式原子化实现
-- 不依赖额外 UI 框架，减少样式冲突和包体积
-
-## 9. 实施顺序
-1. 建立类型与配置文件
-2. 实现 DeepSeek API 封装
-3. 搭建页面骨架与布局组件
-4. 接入预设选择与 prompt 映射
-5. 接入润色请求与加载状态
-6. 接入错误处理与复制功能
-7. 完成字数限制、响应式样式与细节打磨
-
-## 10. 验收标准
-- 单页完成输入、选场景、润色、复制全流程
-- 6 个场景预设全部可用
-- 加载与错误提示明确
-- 3000 字限制生效
-- DeepSeek 模型固定为 deepseek-chat
-- API Key 不硬编码
-- prompt 修改不影响 UI 组件
-- 代码结构符合单文件单组件与目录边界规范
-
-## 11. 风险与约束说明
-- 若 DeepSeek 接口鉴权失败，必须优先检查环境变量与代理配置
-- 若输出不符合场景预期，应优先调整 prompt，不应先改 UI
-- 若后续新增功能超出单页文本润色边界，必须先更新宪法
-
-## 12. 版本信息
-- 方案版本：v1.0.0
-- 对应宪法：1.0.0
-- 适用范围：AI Text Polisher 单页前端应用
+## 8. 交付里程碑
+1. M1：文档对齐（spec/plan）。
+2. M2：代码改造完成并本地联调通过。
+3. M3：CentOS 首次部署可访问并完成端到端润色。
+4. M4：运维固化（PM2、日志、开机自启）。

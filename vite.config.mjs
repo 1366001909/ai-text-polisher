@@ -1,37 +1,28 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 
-export default defineConfig(({ command, mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
-  
-  return {
-    // GitHub Pages base path configuration
-    base: process.env.VITE_BASE_PATH || '/',
-    plugins: [],
-    define: {
-      'import.meta.env.VITE_DEEPSEEK_API_KEY': JSON.stringify(env.VITE_DEEPSEEK_API_KEY || process.env.VITE_DEEPSEEK_API_KEY || ''),
+export default defineConfig({
+  base: '/',
+  plugins: [],
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+    esbuildOptions: {
+      sourcemap: false,
     },
-    optimizeDeps: {
-      include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
-      esbuildOptions: {
-        sourcemap: false,
+  },
+  esbuild: {
+    jsx: 'transform',
+    jsxFactory: 'React.createElement',
+    jsxFragment: 'React.Fragment',
+  },
+  server: {
+    host: '0.0.0.0',
+    port: 5173,
+    proxy: {
+      // Dev mode: forward API requests to local backend service.
+      '/api': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
       },
     },
-    esbuild: {
-      jsx: 'transform',
-      jsxFactory: 'React.createElement',
-      jsxFragment: 'React.Fragment',
-    },
-    server: {
-      host: '0.0.0.0',
-      port: 5173,
-      proxy: {
-        '/api': {
-          target: 'https://api.deepseek.com',
-          changeOrigin: true,
-          secure: true,
-          rewrite: (path) => path.replace(/^\/api/, ''),
-        },
-      },
-    },
-  };
+  },
 });

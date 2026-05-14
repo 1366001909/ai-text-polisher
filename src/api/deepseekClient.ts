@@ -12,14 +12,6 @@ const buildFriendlyError = (message: string, code?: string): FriendlyApiError =>
   return error;
 };
 
-const getApiKey = (): string => {
-  const apiKey = import.meta.env.VITE_DEEPSEEK_API_KEY?.trim();
-  if (!apiKey) {
-    throw buildFriendlyError('未检测到 DeepSeek API Key，请先配置 VITE_DEEPSEEK_API_KEY。', 'MISSING_API_KEY');
-  }
-  return apiKey;
-};
-
 export const createDeepSeekMessages = (systemPrompt: string, userPrompt: string): DeepSeekMessage[] => [
   { role: 'system', content: systemPrompt },
   { role: 'user', content: userPrompt },
@@ -33,7 +25,6 @@ export const sendDeepSeekChatRequest = async (
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${getApiKey()}`,
     },
     body: JSON.stringify({
       model: MODEL_NAME,
@@ -55,9 +46,13 @@ export const sendDeepSeekChatRequest = async (
     }
 
     const fallbackMessage = response.status === 401
-      ? 'DeepSeek 鉴权失败，请检查 API Key 是否正确。'
+      ? '后端鉴权失败，请检查服务器 API Key 配置。'
+      : response.status === 403
+        ? '后端拒绝了请求，请检查服务器访问策略。'
       : response.status === 429
         ? '请求过于频繁，请稍后再试。'
+        : response.status === 504
+          ? '请求超时（30秒），请稍后重试。'
         : '润色请求失败，请稍后重试。';
 
     throw buildFriendlyError(serverMessage || fallbackMessage, `HTTP_${response.status}`);
